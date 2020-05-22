@@ -1,0 +1,680 @@
+class PlayedGame {
+
+  // State Machine
+  
+  playStatus {
+    Ready {
+      entry / { doSetup(); }
+      play -> Moving;
+    }
+    Moving {
+      pause -> Paused;
+      move [hitPaddle()] / { doHitPaddleOrWall(); } -> Moving;
+      move [isOutOfBoundsAndLastLife()] / { doOutOfBounds(); } -> GameOver;
+      move [isOutOfBounds()] / { doOutOfBounds(); } -> Paused;
+      move [hitLastBlockAndLastLevel()] / { doHitBlock(); } -> GameOver;
+      move [hitLastBlock()] / { doHitBlockNextLevel(); } -> Ready;
+      move [hitBlock()] / { doHitBlock(); } -> Moving;
+      move [hitWall()] / { doHitPaddleOrWall(); } -> Moving;
+      move / { doHitNothingAndNotOutOfBounds(); } -> Moving;
+    }
+    Paused {
+      play -> Moving;
+    }
+    GameOver {
+      entry / { doGameOver(); }
+    }
+  }
+  
+  // Guards
+  
+   private boolean hitPaddle(){
+	   BouncePoint bp = calculateBouncePointPaddle();
+	   setBounce(bp);
+	   if (bp != null) {
+		   return true;
+	   }
+	   else 
+		   return false;
+  }
+   
+   private BouncePoint calculateBouncePointPaddle(){
+		// Current position of the ball
+		double x = getCurrentBallX();
+		double y = getCurrentBallY();
+		// Where the ball is going
+		double dx = getBallDirectionX();
+		double dy = getBallDirectionY();
+		double slope = dy/dx;
+		// New position of the ball
+		double positionX = (x+dx);
+		double positionY = (y+dy);
+
+
+		BouncePoint bp = null;
+
+		// Add 5 to all the variables to account for the radius of the ball
+		Rectangle2D regionA = new Rectangle2D.Double(getCurrentPaddleX(), getCurrentPaddleY()-5.0, getCurrentPaddleLength(), 5.0);
+		Rectangle2D regionB = new Rectangle2D.Double(getCurrentPaddleX()-5, getCurrentPaddleY(), 5.0, 5.0);
+		Rectangle2D regionC = new Rectangle2D.Double(getCurrentPaddleX()+getCurrentPaddleLength(), getCurrentPaddleY(), 5.0, 5.0);
+		Rectangle2D regionF = new Rectangle2D.Double(getCurrentPaddleX()+getCurrentPaddleLength(), getCurrentPaddleY()-5, 5.0, 5.0);
+		Rectangle2D regionE = new Rectangle2D.Double(getCurrentPaddleX()-5, getCurrentPaddleY()-5, 5.0, 5.0);
+
+		java.awt.geom.Ellipse2D ball= new java.awt.geom.Ellipse2D.Double(positionX-5, positionY-5, 10, 10);
+
+		java.awt.geom.Line2D path=new java.awt.geom.Line2D.Double(positionX, positionY, x, y);
+
+		// BOUNCE
+
+		// Section E
+		if (ball.intersects(regionE)) {
+			System.out.println("Intersecting E");
+			bp = new BouncePoint(0,0,null);
+			// If approaching from the right, flip Y
+			if(dx <= 0.0) {
+				double newX = x+(regionE.getY()-y)/slope;
+				List<Point2D> points = getInterectionPoints(path, regionE.getX(), regionE.getY(), 5);
+				if (points != null && !points.isEmpty()) {
+					bp.setX(points.get(0).getX());
+					bp.setY(points.get(0).getY());
+					bp.setDirection(BouncePoint.BounceDirection.FLIP_Y);
+				} }
+			// If approaching from the left, flip X
+			else if (dx > 0.0) {
+				bp.setX(regionE.getX());
+				List<Point2D> points = getInterectionPoints(path, regionE.getX(), regionE.getY(), 5);
+				if (points != null && !points.isEmpty()) {
+					double newY = y+slope*(bp.getX()-x);
+					bp.setY(newY);
+					bp.setDirection(BouncePoint.BounceDirection.FLIP_X);
+			} }
+		}
+
+		//Section F
+		if (ball.intersects(regionF)) {
+			System.out.println("Intersecting F");
+			bp = new BouncePoint(0,0,null);
+			// If approaching from the left, flip Y
+			if (dx > 0.0) {
+				List<Point2D> points = getInterectionPoints(path, regionF.getX()+5, regionF.getY(), 5);
+				if (points != null && !points.isEmpty()) {
+					bp.setX(points.get(0).getX());
+					bp.setY(points.get(0).getY());
+					bp.setDirection(BouncePoint.BounceDirection.FLIP_Y);
+				}
+			} else if (dx <= 0.0) {
+				bp.setX(regionF.getX()+5);
+				List<Point2D> points = getInterectionPoints(path, regionF.getX()+5, regionF.getY(), 5);
+				if (points != null && !points.isEmpty()) {
+					bp.setX(points.get(0).getX());
+					bp.setY(points.get(0).getY());
+					bp.setDirection(BouncePoint.BounceDirection.FLIP_X);
+				}
+			}
+		}
+
+		// Section C
+		if (ball.intersects(regionC)) {
+			bp = new BouncePoint(0,0,null);
+			bp.setX(regionC.getX()+5);
+			double newY = y+slope*(bp.getX()-x);
+			bp.setY(newY);
+			bp.setDirection(BouncePoint.BounceDirection.FLIP_X);
+		}
+
+		// Section A
+		else if (ball.intersects(regionA)) {
+			bp = new BouncePoint(0,0,null);
+			bp.setY(regionA.getY());
+			double newX = x+(bp.getY()-y)/slope;
+			bp.setX(newX);
+			bp.setDirection(BouncePoint.BounceDirection.FLIP_Y);
+		}
+
+
+		// Section B
+		else if (ball.intersects(regionB)) {
+			bp = new BouncePoint(0,0,null);
+			bp.setX(regionB.getX());
+			double newY = y+slope*(bp.getX()-x);
+			bp.setY(newY);
+			bp.setDirection(BouncePoint.BounceDirection.FLIP_X);
+		}
+
+
+		return bp;
+	}
+   
+   private void bounceBall(){
+		double incomingX;
+		double remainingX;
+		double incomingY;
+		double remainingY;
+		double currentx=getCurrentBallX();
+		double currenty=getCurrentBallY();
+		double bpx=bounce.getX();
+		double bpy=bounce.getY();
+		double dx=getBallDirectionX();
+		double dy=getBallDirectionY();
+		
+		if (dx >= 10 || dy >= 10) {
+			dx = dx/10;
+			dy = dy/10;
+		}
+
+		System.out.println("dy= "+getBallDirectionY());
+		System.out.println("dx= "+getBallDirectionX());
+		System.out.println("currentx=" +getCurrentBallX());
+		System.out.println("currenty= "+getCurrentBallY());
+		System.out.println("bpy= "+bounce.getY());
+		System.out.println("bpx= "+bounce.getX());
+
+
+		System.out.println(bounce);
+
+		// Flip_X case
+		if (bounce.getDirection() == BouncePoint.BounceDirection.FLIP_X) {
+			// Incoming distance
+			incomingX = (bpx - currentx); System.out.println("incomingX: "+incomingX);
+			remainingX = dx - incomingX; System.out.println("remainingX: "+remainingX);
+			if (remainingX == 0) {
+				setCurrentBallX(bounce.getX());
+				setCurrentBallY(bounce.getY());
+
+				if (bounce.getHitBlock()!=null) {
+					double sign=Math.signum(dy);
+					if (sign==0) {sign=1;}
+					setBallDirectionX(dx*(-1));
+					setBallDirectionY(dy + sign*0.1*Math.abs(dx));
+				}
+			}
+			else
+			{
+				double sign=Math.signum(dy);
+				if (sign==0) {sign=1;}
+				setBallDirectionX(dx*(-1));
+				setBallDirectionY(dy + sign*0.1*Math.abs(dx));
+
+				setCurrentBallX(bounce.getX() + (remainingX/dx)*(getBallDirectionX()));
+				setCurrentBallY(bounce.getY() + (remainingX/dx)*(getBallDirectionY()));
+			}
+		}
+
+		// Flip_Y case
+		if (bounce.getDirection() == BouncePoint.BounceDirection.FLIP_Y) {
+			// Incoming distance
+			incomingY = (bpy - currenty);
+			remainingY = dy - incomingY;
+
+			System.out.println("incomingY: "+incomingY);
+			System.out.println("remainingX: "+remainingY);
+
+			if (remainingY == 0) {
+				setCurrentBallX(bounce.getX());
+				setCurrentBallY(bounce.getY());
+
+				if(bounce.getHitBlock()!=null) {
+					double sign=Math.signum(dx);
+					if (sign==0) {sign=1;}
+					setBallDirectionY(dy*(-1));
+					setBallDirectionX(dx+Math.signum(dx)*0.1*Math.abs(dy));
+				}
+
+			}
+			else
+			{
+				double sign=Math.signum(dx);
+				if (sign==0) {sign=1;}
+
+				setBallDirectionY(dy*(-1));
+				setBallDirectionX(dx+Math.signum(dx)*0.1*Math.abs(getBallDirectionY()));
+				setCurrentBallX(bounce.getX() + (remainingY/dy)*(getBallDirectionX()));
+				setCurrentBallY(bounce.getY() + (remainingY/dy)*(getBallDirectionY()));
+			} 
+		}
+		// Flip_Both Case
+		if (bounce.getDirection() == BouncePoint.BounceDirection.FLIP_BOTH) {
+			// Incoming distance for both X and Y
+			incomingY = (bpy - currenty);
+			incomingX = (bpx - currentx);
+			remainingY = (dy - incomingY);
+			remainingX = (dx - incomingX);
+			if (remainingY == 0 && remainingX == 0) {
+				setCurrentBallY(bounce.getY());
+				setCurrentBallX(bounce.getX());
+
+			} else {
+				setBallDirectionY(dy*(-1));
+				setBallDirectionX(dx*(-1));
+
+				setCurrentBallY(bounce.getY() + (remainingY/dy)*(getBallDirectionY()));
+				setCurrentBallX(bounce.getX() + (remainingX/dx)*(getBallDirectionX()));
+			}
+		}
+		
+		bounce=null; 
+	}
+
+
+   private boolean isOutOfBoundsAndLastLife(){
+	   boolean outOfBounds = false;
+	   if(lives == 1)
+		   outOfBounds = isBallOutOfBounds();
+	   return outOfBounds;
+  }
+  
+  private boolean isBallOutOfBounds() {
+	   if (getCurrentBallY() > 385)
+		   return true;
+	   else return false;
+  }
+  
+  private boolean isOutOfBounds() {
+	   boolean outOfBounds = isBallOutOfBounds();
+	   return outOfBounds;
+  }
+  
+   private boolean hitLastBlockAndLastLevel(){
+	   
+		 Game game = getGame();
+		 int nrLevels = game.numberOfLevels();
+		 setBounce(null);
+		 
+		 if(nrLevels == currentLevel) {
+			 int nrBlocks = numberOfBlocks();
+			 
+			 if(nrBlocks == 1) {
+				 
+				 PlayedBlockAssignment block = getBlock(0);
+				 BouncePoint bp = calculateBouncePointBlock(block);
+				 setBounce(bp);
+				 return (bp!=null);
+			 }
+		 }
+	    return false;
+	  }
+  
+	private boolean hitLastBlock(){
+
+	   int nrBlocks = numberOfBlocks();
+	   setBounce(null);
+	   if(nrBlocks == 1) {
+		   PlayedBlockAssignment block = getBlock(0);
+		   BouncePoint bp = calculateBouncePointBlock(block);
+		   this.setBounce(bp);
+		   return (bp != null);
+	   }
+	   return false;
+ 	}
+  
+private boolean hitBlock(){
+    int nrBlocks = this.numberOfBlocks();
+    setBounce(null);
+    
+    for(int i=0; i<nrBlocks-1; i++) {	
+    	PlayedBlockAssignment block = getBlock(i);
+    	BouncePoint bp = calculateBouncePointBlock(block);
+    	System.out.println(i);
+    	System.out.println(bp);
+    	//this.setBounce(bp);
+    	BouncePoint bounce = this.getBounce();
+    	boolean closer = isCloser(bp, bounce);
+    	System.out.println(closer);
+    	if(closer) {
+    		this.setBounce(bp);
+    	}
+    }
+    System.out.println(getBounce()!=null);
+    return getBounce()!=null;
+  }
+  
+   private boolean hitWall(){
+    BouncePoint bp = calculateBouncePointWall();
+	   setBounce(bp);
+	   if (bp != null) {
+		   return true;
+	   }
+	   else
+		   return false;
+  }
+  
+      private BouncePoint calculateBouncePointWall(){
+		// Current position of the ball
+		double x = getCurrentBallX();
+		double y = getCurrentBallY();
+		// Where the ball is going
+		double dx = getBallDirectionX();
+		double dy = getBallDirectionY();
+		double slope=dy/dx;
+		// New position of the ball
+		double positionX = (x+dx);
+		double positionY = (y+dy);
+
+		BouncePoint bp = null;
+		java.awt.geom.Rectangle2D regionA=new java.awt.geom.Rectangle2D.Double(0, 0, 5, 390-5);
+
+		java.awt.geom.Rectangle2D regionC=new java.awt.geom.Rectangle2D.Double(390-5, 0, 5, 390-5);
+
+		java.awt.geom.Rectangle2D regionD=new java.awt.geom.Rectangle2D.Double(0, 0, 390-10, 5);
+
+		java.awt.geom.Ellipse2D ball= new java.awt.geom.Ellipse2D.Double(positionX-5, positionY-5, 10, 10);
+		
+		
+		// A-B Corner
+		if (positionX > 5 && positionY > 5) {
+			bp = new BouncePoint(0,0,null);
+			bp.setX(5);
+			bp.setY(5);
+			bp.setDirection(BouncePoint.BounceDirection.FLIP_BOTH);
+		}
+
+		// B-C Corner
+		else if (positionX >= 385 && positionY <= 5) {
+			bp = new BouncePoint(0,0,null);
+			bp.setX(390-5);
+			bp.setY(5);
+			bp.setDirection(BouncePoint.BounceDirection.FLIP_BOTH);
+		}
+		
+
+		// Section A
+		else if (ball.intersects(regionA)) {
+			bp = new BouncePoint(0,0,null);
+			bp.setX(5);
+			double newy=y+slope*(bp.getX()-x);
+			bp.setY(newy);
+			bp.setDirection(BouncePoint.BounceDirection.FLIP_X);
+		}
+
+		else if (ball.intersects(regionC)) {
+			bp = new BouncePoint(0,0,null);
+			bp.setX(390-5);
+			double newy=y+slope*(bp.getX()-x);
+			bp.setY(newy);
+			bp.setDirection(BouncePoint.BounceDirection.FLIP_X);
+		}
+
+		// Section B
+		else if (ball.intersects(regionD)) {
+			bp = new BouncePoint(0,0,null);
+			bp.setY(5);
+			double newx=x+(bp.getY()-y)/slope;
+			bp.setX(newx);
+			bp.setDirection(BouncePoint.BounceDirection.FLIP_Y);
+		}
+
+
+		return bp;
+	}
+
+  private BouncePoint calculateBouncePointBlock(PlayedBlockAssignment pblock){
+		// Current position of the ball
+		double x = getCurrentBallX();
+		double y = getCurrentBallY();
+		// Where the ball is going
+		double dx = getBallDirectionX();
+		double dy = getBallDirectionY();
+		double slope=dy/dx;
+		// New position of the ball
+		double positionX = (x+dx);
+		double positionY = (y+dy);
+
+		BouncePoint bp = null; 
+		//java.awt.geom.Rectangle2D physicalblock=new java.awt.geom.Rectangle2D.Double(pblock.getX()-10, pblock.getY()-10, 30.0, 30.0);
+
+		java.awt.geom.Rectangle2D regionA=new java.awt.geom.Rectangle2D.Double(pblock.getX(), pblock.getY()-5, 20, 5);
+
+		java.awt.geom.Rectangle2D regionD=new java.awt.geom.Rectangle2D.Double(pblock.getX(), pblock.getY()+20, 20, 5);
+
+		java.awt.geom.Rectangle2D regionB=new java.awt.geom.Rectangle2D.Double(pblock.getX()-5, pblock.getY(), 5, 20);
+
+		java.awt.geom.Rectangle2D regionC=new java.awt.geom.Rectangle2D.Double(pblock.getX()+20, pblock.getY(), 5, 20);
+
+		java.awt.geom.Rectangle2D regionE=new java.awt.geom.Rectangle2D.Double(pblock.getX()-5, pblock.getY()-5, 5, 5);
+
+		java.awt.geom.Rectangle2D regionF=new java.awt.geom.Rectangle2D.Double(pblock.getX()+20, pblock.getY()-5, 5, 5);
+
+		java.awt.geom.Rectangle2D regionG=new java.awt.geom.Rectangle2D.Double(pblock.getX()-5, pblock.getY()+20, 5, 5);
+
+		java.awt.geom.Rectangle2D regionH=new java.awt.geom.Rectangle2D.Double(pblock.getX()+20, pblock.getY()+20, 5, 5);
+
+		java.awt.geom.Ellipse2D ball=new java.awt.geom.Ellipse2D.Double(positionX-5, positionY-5, 10, 10);
+
+		java.awt.geom.Line2D path=new java.awt.geom.Line2D.Double(positionX, positionY, x, y);
+
+
+		if (ball.intersects(regionE)) {
+			System.out.println("intersecting E");
+			bp = new BouncePoint(0,0,null);
+			bp.setHitBlock(pblock);
+			System.out.println("dx: "+dx);
+			if  (dx<=0.0) {
+				double newx=x+(regionE.getY()-y)/slope;
+				List<Point2D> points = getInterectionPoints(path, pblock.getX(), pblock.getY(), 5);
+				if (points!=null&&!points.isEmpty()) {
+					bp.setX(points.get(0).getX());
+					bp.setY(points.get(0).getY());
+					bp.setDirection(BouncePoint.BounceDirection.FLIP_Y);
+				}}
+			else if(dx>0.0) {
+				bp.setX(regionE.getX());
+				List<Point2D> points = getInterectionPoints(path, pblock.getX(), pblock.getY(), 5);
+				if (points!=null&&!points.isEmpty()) {
+					bp.setX(points.get(0).getX());
+					bp.setY(points.get(0).getY());
+					bp.setDirection(BouncePoint.BounceDirection.FLIP_X);
+					//flip Y if ball approaches from right and Flip X if ball approaches from left
+				}}
+		}
+		//Section F
+		else if (ball.intersects(regionF)) {
+			System.out.println("intersecting F");
+			bp = new BouncePoint(0,0,null);
+			bp.setHitBlock(pblock);
+			System.out.println("dx: "+dx);
+			if  (dx>0.0) {
+				System.out.println("dx>0.0: "+(dx>0.0));
+				List<Point2D> points = getInterectionPoints(path, pblock.getX()+20, pblock.getY(), 5);
+				if (points!=null&&!points.isEmpty()) {
+					bp.setX(points.get(0).getX());
+					bp.setY(points.get(0).getY());
+					bp.setDirection(BouncePoint.BounceDirection.FLIP_Y);
+				}}
+			else if(dx<=0.0) {
+				bp.setX(regionF.getX()+5);
+				List<Point2D> points = getInterectionPoints(path, pblock.getX()+20, pblock.getY(), 5);
+				if (points!=null&&!points.isEmpty()) {
+					bp.setX(points.get(0).getX());
+					bp.setY(points.get(0).getY());
+					bp.setDirection(BouncePoint.BounceDirection.FLIP_X);
+					//flip Y if ball approaches from right and Flip X if ball approaches from left
+				}}
+		}
+		//sectionG
+		else if (ball.intersects(regionG)) {
+			System.out.println("intersecting G");
+			bp = new BouncePoint(0,0,null);
+			bp.setHitBlock(pblock);
+			System.out.println("dx: "+dx);
+			if  (dx<=0.0) {
+				List<Point2D> points = getInterectionPoints(path, pblock.getX(), pblock.getY()+20, 5);
+				if (points!=null&&!points.isEmpty()) {
+					bp.setX(points.get(0).getX());
+					bp.setY(points.get(0).getY());
+					bp.setDirection(BouncePoint.BounceDirection.FLIP_Y);
+				}}
+			else if(dx>0.0) {
+				List<Point2D> points = getInterectionPoints(path, pblock.getX(), pblock.getY()+20, 5);
+				if (points!=null&&!points.isEmpty()) {
+					bp.setX(points.get(0).getX());
+					bp.setY(points.get(0).getY());
+					bp.setDirection(BouncePoint.BounceDirection.FLIP_X);
+					//flip Y if ball approaches from right and Flip X if ball approaches from left
+				}}
+		}
+		//Section H
+		else if (ball.intersects(regionH)) {
+			System.out.println("intersecting H");
+			bp = new BouncePoint(0,0,null);
+			bp.setHitBlock(pblock);
+			System.out.println("dx: "+dx);
+			if  (dx>0.0) {
+				List<Point2D> points = getInterectionPoints(path, pblock.getX()+20, pblock.getY()+20, 5);
+				if (points!=null&&!points.isEmpty()) {
+					bp.setX(points.get(0).getX());
+					bp.setY(points.get(0).getY());
+					bp.setDirection(BouncePoint.BounceDirection.FLIP_Y);
+				}}
+			else if(dx<=0.0) {
+				List<Point2D> points = getInterectionPoints(path, pblock.getX()+20, pblock.getY()+20, 5);
+				if (points!=null&&!points.isEmpty()) {
+					bp.setX(points.get(0).getX());
+					bp.setY(points.get(0).getY());
+					bp.setDirection(BouncePoint.BounceDirection.FLIP_X);
+					//flip Y if ball approaches from right and Flip X if ball approaches from left
+				}}
+		}
+		// Section A
+		if ((bp!=null&&bp.getDirection()==null)||bp==null) {
+			if (ball.intersects(regionA)) {
+				System.out.println("intersecting A");
+				bp = new BouncePoint(0,0,null);
+				bp.setHitBlock(pblock);
+				bp.setY(regionA.getY());
+				double newx=x+(bp.getY()-y)/slope;
+				bp.setX(newx);
+				bp.setDirection(BouncePoint.BounceDirection.FLIP_Y);
+			}
+			//sectionD
+			else if (ball.intersects(regionD)) {
+				System.out.println("intersecting D");
+				bp = new BouncePoint(0,0,null);
+				bp.setHitBlock(pblock);
+				bp.setY(regionD.getY()+5);
+				double newx=x+(bp.getY()-y)/slope;
+				bp.setX(newx);
+				bp.setDirection(BouncePoint.BounceDirection.FLIP_Y);
+			}
+
+			// Section B
+			else if (ball.intersects(regionB)) {
+				System.out.println("intersecting B");
+				bp = new BouncePoint(0,0,null);
+				bp.setHitBlock(pblock);
+				bp.setX(regionB.getX());
+				double newy=y+slope*(bp.getX()-x);
+				bp.setY(newy);
+				bp.setDirection(BouncePoint.BounceDirection.FLIP_X);
+			}
+
+			else if (ball.intersects(regionC)) {
+				System.out.println("intersecting C");
+				bp = new BouncePoint(0,0,null);
+				bp.setHitBlock(pblock);
+				bp.setX(regionC.getX()+5);
+				double newy=y+slope*(bp.getX()-x);
+				bp.setY(newy);
+				bp.setDirection(BouncePoint.BounceDirection.FLIP_X);
+			}
+		}
+
+		return bp;
+	}
+  // Actions
+  
+   private void doSetup(){
+    Random rgen=new Random();
+	   	doReset();
+	    Game game=getGame();
+	    Level level = game.getLevel(currentLevel-1);
+	    List<BlockAssignment> assignments= level.getBlockAssignments();
+	    
+	    for (BlockAssignment a: assignments){
+	    	PlayedBlockAssignment pblock=new PlayedBlockAssignment(Game.WALL_PADDING+(Block.SIZE+Game.COLUMNS_PADDING)*(a.getGridHorizontalPosition()-1),
+	    			Game.WALL_PADDING+(Block.SIZE+Game.ROW_PADDING)*(a.getGridVerticalPosition()-1), a.getBlock(), this);
+	    }
+	    
+	    while (numberOfBlocks()<game.getNrBlocksPerLevel()) {
+	   		int x=rgen.nextInt(15)+1;
+			int y=rgen.nextInt(10)+1;
+			while (level.findBlockAssignment(x,y)!=null) {
+				x++;
+				if (x==15) {
+					y++;
+					x=1;
+				}
+			}
+	    	PlayedBlockAssignment pblock=new PlayedBlockAssignment(Game.WALL_PADDING+(Block.SIZE+Game.COLUMNS_PADDING)*(x-1),
+	    			Game.WALL_PADDING+(Block.SIZE+Game.ROW_PADDING)*(y-1), game.getRandomBlock(), this);
+	    
+	    }
+  }
+  
+  private void doReset(){
+  	resetCurrentBallX();
+  	resetCurrentBallY();
+  	resetBallDirectionX();
+  	resetBallDirectionY();
+  	resetCurrentPaddleX();
+  }
+  
+  private void doHitPaddleOrWall() {
+	   bounceBall();
+	   
+  }
+
+   private void doOutOfBounds(){
+	   setLives(lives-1);
+	   doReset();
+  }
+  
+   private void doHitBlock(){
+    score = getScore();   
+		bounce = getBounce();
+		if(bounce!=null) {
+			System.out.println(bounce);
+			System.out.println(bounce.getHitBlock());
+			PlayedBlockAssignment pblock = bounce.getHitBlock();
+			Block block = pblock.getBlock();
+			int points = block.getPoints();
+			setScore(score+points);
+			pblock.delete();
+			bounceBall();
+		}
+  }
+
+	private void doHitBlockNextLevel(){
+    	doHitBlock();
+    	int level = this.getCurrentLevel();
+    
+    	setCurrentLevel(level+1);
+    	setCurrentPaddleLength(getGame().getPaddle().getMaxPaddleLength()-(getGame().getPaddle().getMaxPaddleLength()-getGame().getPaddle().getMinPaddleLength())/(getGame().numberOfLevels()-1)*(getCurrentLevel()-1));
+    	setWaitTime(INITIAL_WAIT_TIME*(int)getGame().getBall().getBallSpeedIncreaseFactor()^(getCurrentLevel()-1));
+  	}
+
+	private void doHitNothingAndNotOutOfBounds(){
+	   
+	   double x = getCurrentBallX();
+	   double y = getCurrentBallY();
+	   
+	   double dx = getBallDirectionX();
+	   double dy = getBallDirectionY();
+	   
+	   setCurrentBallX(x+dx);
+	   setCurrentBallY(y+dy);
+	   
+  	}
+
+	private void doGameOver() {
+    	Block223 block223=this.getBlock223();
+    	Player p=this.getPlayer();
+    	
+    	if (p!=null){
+    		Game game=this.getGame();
+    		HallOfFameEntry hof=new HallOfFameEntry(score, playername, p, game, block223);
+    		game.setMostRecentEntry(hof);
+    		//this.delete();
+    	}
+  	}
+
+}
