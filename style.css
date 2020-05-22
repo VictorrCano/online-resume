@@ -7,3 +7,14 @@ h3 {
     background-color: lightgrey;
     text-align: center;
 }
+
+@media (min-width: 800px){
+    h1::before {
+        content: "Victor Cano online resume";
+    }
+}
+@media (max-width: 799px){
+    h1::before{
+        content:"Victor Cano";
+    }
+}
