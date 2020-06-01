@@ -2,41 +2,55 @@
 <html>
     <head>
         <title>My Webpage</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="style.css">
+        <link rel="stylesheet" href="sass.css">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+
+
     </head>
     <body>
 
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link rel="stylesheet" href="style.css">
 
+    
         <h1></h1>
         <img src="download.png" width="7%" height="7%">
 
 
-        <h3>Completed Software Courses</h3>
-            <ol>
-                <li>Intro to Software Development</li>
-                <li>Introduction to Computer Science</li>
-                <li>Model-Based Programming</li>
-                <li>Introduction to Software Systems</li>
-                <li>Algorithms and Data Structures</li>
-                <li>Computer Organization</li>
-                <li>Intro to Software Engineering</li>
-            </ol>
+        <h3><span class="type">Completed</span> Software Courses</h3>
+            <div class="row">
+            <div class="col-4">
+                <ul>
+                    <li>Intro to Software Development</li>
+                    <li>Introduction to Computer Science</li>
+                    <li>Model-Based Programming</li>
+                    <li>Introduction to Software Systems</li>
+                </ul>
+            </div>
+            <div class="col-4">
+                <ul>    
+                    <li>Algorithms and Data Structures</li>
+                    <li>Computer Organization</li>
+                    <li>Intro to Software Engineering</li>
+                    <li>Discrete Structures</li>
+                </ul>
+            </div>
+            </div>
 
-        <h3>Personal Software Projects</h3>
-            <ul>
+        <h3><span class="type">Personal</span> Software Projects</h3>
+            <ol>
                 <li><a href="page2.html">Event Registration Web Application</a></li>
                 <li><a href="page3.html">Sprint Planning Web Application</a></li>
                 <li><a href="page4.html">Retro Block Destroyer</a></li>
                 <li><a href="page5.html">Retro Dungeon Crawler</a></li>                
-            </ul>
+            </ol>
 
-        <h3>Professional Work Experience</h3>
+        <h3><span class="type">Professional</span> Work Experience</h3>
             <table>
                 <tr>
-                    <th>Employer</th>
-                    <th>Job Title</th>
-                    <th>Dates of Employment</th>
+                    <th id="employer">Employer</th>
+                    <th id="title">Job Title</th>
+                    <th id="dates">Dates of Employment</th>
                 </tr>
                 <tr>
                     <td>Inventive Works</td>
@@ -60,7 +74,7 @@
                 </tr>
             </table>
         
-        <h3>Recommendations</h3>
+        <h3 id="return1">Recommendations</h3>
         <p>"We see a lot of interns in our internship program. Victor stands out as one of our best. 
             He came to work on time, worked well with others, and was a reliable team member. 
             He was eager to learn and willingly threw himself at new problems to help out his team. 

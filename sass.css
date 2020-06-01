@@ -1,0 +1,30 @@
+h1 {
+  background-color: grey;
+  text-align: center;
+}
+
+h3 {
+  background-color: lightgrey;
+  text-align: center;
+}
+
+tr th {
+  text-shadow: black;
+}
+tr td {
+  text-emphasis: bold;
+}
+
+#return1, #return {
+  color: white;
+}
+
+#return1 {
+  font-weight: bold;
+}
+
+ol li {
+  color: lightcoral;
+}
+
+/*# sourceMappingURL=sass.css.map */

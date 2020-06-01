@@ -1,0 +1,38 @@
+$placement: center;
+
+h1 {
+    background-color: grey;
+    text-align: $placement;
+}
+
+h3 {
+    background-color:lightgrey;
+    text-align: $placement;
+}
+
+tr {
+    th{
+        text-shadow: darken($color: #000000, $amount: 0);;
+    }
+    td{
+        text-emphasis: bold;
+    }
+}
+
+%white{
+    color: white;
+}
+
+#return{
+    @extend %white;
+}
+
+#return1{
+    @extend %white;
+    font-weight: bold;
+}
+ol{
+    li{
+        color:lightcoral;
+    }
+}
